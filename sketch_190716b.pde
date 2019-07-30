@@ -21,25 +21,27 @@ GestureTrainer gestureTrainer;
 
 class Gesture {
    public String label;
-   public String name;
+   public int gestureId;
    public String videoPath;
    
-   Gesture(String labelT, String nameT, String videoPathT){
+   Gesture(String labelT, int gestureIdT, String videoPathT){
      label     = labelT;
-     name      = nameT;
+     gestureId = gestureIdT;
      videoPath = videoPathT;
    }
 }
 
 class GestureTrainer {
    public Gesture currentGesture;
-   public Gesture[] gestures;
+   public ArrayList<Gesture> gestures;
    public Movie gestureVideo;
+   //public Movie[] gestureVideos;
+   public ArrayList<Movie> gestureVideos;
    public ControlP5 cp5;
    public int gestureDuration;
    public int timerStartTime;
+   public int currentIdx = 0;
    private PFont roboto;
-   private int currentIdx = 0;
    private PApplet ctx;
    private Button prevBtn;
    private Button recordBtn;
@@ -47,44 +49,55 @@ class GestureTrainer {
    private Slider slider;
    
    
-   GestureTrainer(PApplet ctxT, Gesture[] gesturesT, int gestureDurationT) {
+   GestureTrainer(PApplet ctxT, ArrayList<Gesture> gesturesT, int gestureDurationT) {
      ctx = ctxT;
      gestures = gesturesT;
      gestureDuration = gestureDurationT;
      cp5 = new ControlP5(ctx);
-     currentGesture= gestures[currentIdx];
-     onGestureChange();
+     currentGesture= gestures.get(currentIdx); // currentIdx = 0
+     loadVideos();
+     onGestureChange(-1);
      showButtons();
    }
    
-   public void showVideo() {
-      // dispose of the previous video 
-      // to free up memory and processor
-      
-      if (gestureVideo != null) {
-        gestureVideo.dispose();
-      }
-      gestureVideo = new Movie(ctx, currentGesture.videoPath);
-      gestureVideo.frameRate(2);
-      gestureVideo.loop();
+   public void loadVideos() {
+     int num = gestures.size();
+     gestureVideos = new ArrayList<Movie>();
+     for(int i = 0; i < num; i++) {
+       String path = gestures.get(i).videoPath;
+       gestureVideos.add(new Movie(ctx, path));
+     }
+   }
+   
+   public void stopVideo(int gestureIdx) {
+     println("stopping video: " + gestureIdx);
+      gestureVideos.get(gestureIdx).stop(); 
+   }
+   
+   public void showVideo(int gestureIdx) {
+     println("showing video: " + gestureIdx);
+      gestureVideos.get(gestureIdx).loop();
    }
    
    public void prev() {
       if (currentIdx == 0) return;
+      int oldIdx = currentIdx;
       currentIdx--;
-      currentGesture= gestures[currentIdx];
-      onGestureChange();
+      currentGesture= gestures.get(currentIdx);
+      onGestureChange(oldIdx);
    }
    
    public void next() {
-      if (currentIdx + 1 >= gestures.length) return;
+      if (currentIdx + 1 >= gestures.size()) return;
+      int oldIdx = currentIdx;
       currentIdx++;
-      currentGesture= gestures[currentIdx];
-      onGestureChange();
+      currentGesture = gestures.get(currentIdx);
+      onGestureChange(oldIdx);
    }
    
-   public void onGestureChange() {
-      showVideo();
+   public void onGestureChange(int oldGestureIdx) {
+      if (oldGestureIdx != -1) stopVideo(oldGestureIdx);
+      showVideo(gestures.indexOf(currentGesture));
       showGestureName();
    }
    
@@ -163,24 +176,20 @@ class GestureTrainer {
 
 void setup() {
   //fullScreen();
-  size(375, 667);
+  size(375, 666);
   background(BACKGROUND_COLOR);
   
-  Gesture[] gestures = { 
-    new Gesture("Resting", "resting", "resting.mp4"),
-    new Gesture("Index extension", "index_extension", "index_extension_1.mp4"),
-    new Gesture("Thumb abduction", "thumb_abduction", "thumb_abduction.mp4"),
-    new Gesture("Thumb extension", "thumb_extension", "thumb_extension.mp4"),
-    new Gesture("Pinky extension", "pinky_extension", "pinky_extension.mp4"),
-    new Gesture("Hand open", "hand_open", "hand_open.mp4"),
-    new Gesture("Wrist extension", "wrist_extension", "wrist_extension.mp4"),
-  };
+  ArrayList<Gesture> gestures = new ArrayList<Gesture>();
+  gestures.add(new Gesture("Resting",         1, "trimmed/resting.mp4"));
+  gestures.add(new Gesture("Index extension", 2, "trimmed/index_extension.mp4"));
+  gestures.add(new Gesture("Thumb abduction", 3, "trimmed/thumb_abduction.mp4"));
+  gestures.add(new Gesture("Thumb extension", 4, "trimmed/swipe_right.mp4"));
+  gestures.add(new Gesture("Pinky extension", 5, "trimmed/pinky_extension.mp4"));
+  gestures.add(new Gesture("Hand open",       6, "trimmed/hand_open.mp4"));
+  gestures.add(new Gesture("Wrist extension", 7, "trimmed/wrist_extension.mp4"));
   
   // initialize gesture trainer
   gestureTrainer = new GestureTrainer(this, gestures, CONFIG.gestureDuration);
-  
-  // set up slider
-  //slider = cp5.addSlider("timeProgress");
 }
 
 void record() {
@@ -196,13 +205,13 @@ void next() {
 }
 
 void draw() {
-  if (gestureTrainer.gestureVideo != null) {
+  if (gestureTrainer.gestureVideos != null) {   
     float videoWidth  = width - MARGIN_HORIZONTAL*2;
     float videoHeight = videoWidth * VIDEO_ASPECT_RATIO;
     float videoXPos   = MARGIN_HORIZONTAL;
     float videoYPos   = MARGIN_VERTICAL;
-    
-    image(gestureTrainer.gestureVideo, videoXPos, videoYPos, videoWidth, videoHeight);
+  
+    image(gestureTrainer.gestureVideos.get(gestureTrainer.currentIdx), videoXPos, videoYPos, videoWidth, videoHeight);
   }
   if (gestureTrainer.slider != null) {
     int gestureDuration = gestureTrainer.gestureDuration;
